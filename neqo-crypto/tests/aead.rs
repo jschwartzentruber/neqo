@@ -1,6 +1,5 @@
 #![cfg_attr(feature = "deny-warnings", deny(warnings))]
 #![warn(clippy::pedantic)]
-#![cfg(not(feature = "fuzzing"))]
 
 use neqo_crypto::constants::{Cipher, TLS_AES_128_GCM_SHA256, TLS_VERSION_1_3};
 use neqo_crypto::hkdf;

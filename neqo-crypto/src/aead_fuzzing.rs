@@ -4,32 +4,49 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::aead::Aead as RealAead;
 use crate::constants::{Cipher, Version};
 use crate::err::{sec::SEC_ERROR_BAD_DATA, Error, Res};
 use crate::p11::SymKey;
 use std::fmt;
 
 pub const FIXED_TAG_FUZZING: &[u8] = &[0x0a; 16];
-pub struct Aead {}
+pub struct Aead {
+    aead: RealAead,
+    no_encrypt: bool,
+}
 
-#[allow(clippy::unused_self)]
 impl Aead {
-    pub fn new(_version: Version, _cipher: Cipher, _secret: &SymKey, _prefix: &str) -> Res<Self> {
-        Ok(Self {})
+    pub fn new(version: Version, cipher: Cipher, secret: &SymKey, prefix: &str) -> Res<Self> {
+        Ok(Self {
+            aead: RealAead {
+                version: version,
+                cipher: cipher,
+                secret: secret,
+                prefix: prefix,
+            },
+            no_encrypt: false,
+        })
     }
 
     #[must_use]
     pub fn expansion(&self) -> usize {
-        FIXED_TAG_FUZZING.len()
+        if self.no_encrypt
+            FIXED_TAG_FUZZING.len()
+        else
+            self.aead.expansion()
     }
 
     pub fn encrypt<'a>(
         &self,
-        _count: u64,
-        _aad: &[u8],
+        count: u64,
+        aad: &[u8],
         input: &[u8],
         output: &'a mut [u8],
     ) -> Res<&'a [u8]> {
+        if !self.no_encrypt
+            return self.encrypt(count, aad, input, output);
+
         let l = input.len();
         output[..l].copy_from_slice(input);
         output[l..l + 16].copy_from_slice(FIXED_TAG_FUZZING);
@@ -38,11 +55,14 @@ impl Aead {
 
     pub fn decrypt<'a>(
         &self,
-        _count: u64,
-        _aad: &[u8],
+        count: u64,
+        aad: &[u8],
         input: &[u8],
         output: &'a mut [u8],
     ) -> Res<&'a [u8]> {
+        if !self.no_encrypt
+            return self.decrypt(count, aad, input, output);
+
         if input.len() < FIXED_TAG_FUZZING.len() {
             return Err(Error::from(SEC_ERROR_BAD_DATA));
         }
@@ -65,6 +85,9 @@ impl Aead {
 
 impl fmt::Debug for Aead {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if !self.no_encrypt
+            return self.fmt(f);
+
         write!(f, "[FUZZING AEAD]")
     }
 }
